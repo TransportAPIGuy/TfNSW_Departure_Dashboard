@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="60">
+    <title>Departures</title>
+    <style>
+        /* Always light mode styling with reduced row heights (approx. half) */
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: white;
+            color: #000;
+            font-size: 14px;
+        }
+
+        /* vertical spacing set to ~half (5 -> 2), padding halved (8 -> 4) */
+        table {
+            width: 100%;
+            border-spacing: 3px 2px;
+            border-collapse: separate;
+            padding: 5px;
+            overflow: hidden;
+            border-radius: 8px;
+            background-color: transparent;
+        }
+
+        td {
+            padding: 4px;
+            background-color: transparent;
+        }
+
+        tr {
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        /* category cell: increased by 1px (global) + 3px extra => 15px */
+        .category {
+            font-size: 15px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            width: 50px;
+            height: 25px;
+            line-height: 25px;
+            border-radius: 8px;
+        }
+
+        /* keep content readable while allowing shorter rows (original 13px -> now 14px) */
+        .content {
+            font-size: 14px;
+            font-weight: normal;
+        }
+
+        .expand {
+            width: auto;
+            text-align: left;
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+
+        .time {
+            font-size: 14px;
+            width: 60px;
+            text-align: left;
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .destination {
+            font-weight: bold;
+        }
+
+        .regular {
+            font-weight: normal;
+        }
+
+        .red-text {
+            color: red;
+        }
+
+        tr:hover {
+            background-color: rgba(0, 0, 0, 0.03);
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            color: black;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 1000;
+            max-width: 90%;
+            font-size: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <table id="departures-table">
+        <!-- Table rows will be dynamically populated from departures.json -->
+    </table>
+
+    <script>
+        // Function to convert hex color to RGBA
+        function hexToRgba(hex, alpha = 0.1) {
+            const h = hex.replace('#', '');
+            const r = parseInt(h.substring(0, 2), 16);
+            const g = parseInt(h.substring(2, 4), 16);
+            const b = parseInt(h.substring(4, 6), 16);
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+
+        // Function to format time display
+        function formatTime(minutes, isRealtime) {
+            let timeText = '';
+            if (minutes === 0) {
+                timeText = 'Now';
+            } else if (minutes > 60) {
+                const hours = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                timeText = `${hours} hr<br>${mins} min`;
+            } else {
+                timeText = `${minutes} min`;
+            }
+            return timeText;
+        }
+
+        // Function to populate table with departures
+        function populateTable(departures) {
+            const table = document.getElementById('departures-table');
+            table.innerHTML = ''; // Clear existing rows
+
+            departures.forEach(dep => {
+                const row = document.createElement('tr');
+
+                const accentColor = dep.accent_colour || '#000000';
+                const bgColor = hexToRgba(accentColor, 0.1);
+                const line = dep.line_disassembledName_route || '';
+                const destination = dep.destination_without_via || 'Unknown Destination';
+                const via = dep.destination_via_only || '';
+                const minutes = dep.minutes_to_departure;
+                const isRealtime = dep.isRealtimeControlled !== false;
+
+                // Category cell
+                const categoryCell = document.createElement('td');
+                categoryCell.className = 'category';
+                categoryCell.style.backgroundColor = accentColor;
+                categoryCell.textContent = line;
+                row.appendChild(categoryCell);
+
+                // Content cell
+                const contentCell = document.createElement('td');
+                contentCell.className = 'content expand';
+                contentCell.style.backgroundColor = bgColor;
+
+                let contentHTML = `<span class="destination">${destination}</span>`;
+                if (via) {
+                    contentHTML += ` <span class="regular" style="font-size:0.9em"> via ${via}</span>`;
+                }
+                contentCell.innerHTML = contentHTML;
+                row.appendChild(contentCell);
+
+                // Time cell
+                const timeCell = document.createElement('td');
+                timeCell.className = 'time';
+                timeCell.style.backgroundColor = bgColor;
+                if (!isRealtime) {
+                    timeCell.style.color = 'rgb(0,0,0)';
+                }
+                timeCell.innerHTML = formatTime(minutes, isRealtime);
+                row.appendChild(timeCell);
+
+                table.appendChild(row);
+            });
+        }
+
+        // Load departures from JSON file
+        async function loadDepartures() {
+            try {
+                const response = await fetch('departures.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load departures');
+                }
+                const departures = await response.json();
+                populateTable(departures);
+            } catch (error) {
+                console.error('Error loading departures:', error);
+                // Display error message in table
+                const table = document.getElementById('departures-table');
+                table.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px;">Error loading departures. Please refresh the page.</td></tr>';
+            }
+        }
+
+        // Load departures on page load
+        loadDepartures();
+
+        // Fallback JS reload every 60 seconds (supports browsers that ignore meta refresh)
+        setTimeout(function () {
+            location.reload(true);
+        }, 60000);
+    </script>
+</body>
+
+</html>
